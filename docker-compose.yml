@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hello-gambling-db
+    environment:
+      POSTGRES_USER: hellogambling
+      POSTGRES_PASSWORD: hellogambling123
+      POSTGRES_DB: hellogambling
+    ports:
+      - "5433:5432"
+    volumes:
+      - hello_gambling_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hellogambling"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  hello_gambling_data:

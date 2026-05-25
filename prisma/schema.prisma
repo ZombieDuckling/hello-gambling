@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CONSUMER
+  OPERATOR
+  ADMIN
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED
+}
+
+enum ComplaintCategory {
+  PAYMENT_ISSUES
+  BONUS_DISPUTES
+  ACCOUNT_ISSUES
+  RESPONSIBLE_GAMBLING
+  TECHNICAL_ISSUES
+  UNFAIR_TREATMENT
+  OTHER
+}
+
+enum DisputeStage {
+  SUBMITTED
+  UNDER_REVIEW
+  MEDIATION
+  RESOLVED
+  CLOSED
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String
+  password       String
+  role           UserRole        @default(CONSUMER)
+  operatorId     String?
+  operator       Operator?       @relation(fields: [operatorId], references: [id])
+  complaints     Complaint[]
+  responses      Response[]
+  disputes       Dispute[]
+  disputeUpdates DisputeUpdate[]
+  forumThreads   ForumThread[]
+  forumPosts     ForumPost[]
+  forumVotes     ForumVote[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Operator {
+  id            String      @id @default(cuid())
+  name          String
+  slug          String      @unique
+  description   String?
+  licenseNumber String?
+  website       String?
+  logoUrl       String?
+  province      String?
+  complaints    Complaint[]
+  users         User[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Complaint {
+  id          String            @id @default(cuid())
+  title       String
+  description String
+  category    ComplaintCategory
+  rating      Int               @default(1)
+  status      ComplaintStatus   @default(OPEN)
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+  operatorId  String
+  operator    Operator          @relation(fields: [operatorId], references: [id])
+  responses   Response[]
+  dispute     Dispute?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model Response {
+  id          String    @id @default(cuid())
+  content     String
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id])
+  isOfficial  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+model Dispute {
+  id              String          @id @default(cuid())
+  referenceNumber String          @unique
+  stage           DisputeStage    @default(SUBMITTED)
+  summary         String
+  complaintId     String          @unique
+  complaint       Complaint       @relation(fields: [complaintId], references: [id])
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+  updates         DisputeUpdate[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model DisputeUpdate {
+  id        String       @id @default(cuid())
+  content   String
+  stage     DisputeStage
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  disputeId String
+  dispute   Dispute      @relation(fields: [disputeId], references: [id])
+  createdAt DateTime     @default(now())
+}
+
+enum ForumCategory {
+  GENERAL
+  OPERATOR_REVIEWS
+  TIPS_AND_STRATEGY
+  DISPUTES_AND_ISSUES
+  REGULATORY
+}
+
+model ForumThread {
+  id        String        @id @default(cuid())
+  title     String
+  content   String
+  category  ForumCategory @default(GENERAL)
+  pinned    Boolean       @default(false)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  posts     ForumPost[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model ForumPost {
+  id        String      @id @default(cuid())
+  content   String
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  threadId  String
+  thread    ForumThread @relation(fields: [threadId], references: [id])
+  votes     ForumVote[]
+  createdAt DateTime    @default(now())
+}
+
+model ForumVote {
+  id        String    @id @default(cuid())
+  value     Int
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  postId    String
+  post      ForumPost @relation(fields: [postId], references: [id])
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, postId])
+}
