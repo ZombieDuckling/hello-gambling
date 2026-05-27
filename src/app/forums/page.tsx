@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Suspense } from "react";
 import ForumSearch from "./ForumSearch";
+import { expandQuery } from "@/lib/expandQuery";
 
 export const dynamic = "force-dynamic";
 
@@ -22,16 +23,17 @@ export default async function ForumsPage({ searchParams }: { searchParams: Promi
   const session = await getServerSession(authOptions);
   const activeCategory = category ?? null;
   const query = q?.trim() ?? "";
+  const keywords = query ? await expandQuery(query) : [];
 
   const [threads, categoryCounts] = await Promise.all([
     prisma.forumThread.findMany({
       where: {
         ...(activeCategory ? { category: activeCategory as any } : {}),
-        ...(query ? {
-          OR: [
-            { title: { contains: query, mode: "insensitive" } },
-            { content: { contains: query, mode: "insensitive" } },
-          ],
+        ...(keywords.length > 0 ? {
+          OR: keywords.flatMap((kw) => [
+            { title: { contains: kw, mode: "insensitive" } },
+            { content: { contains: kw, mode: "insensitive" } },
+          ]),
         } : {}),
       },
       orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
@@ -80,15 +82,31 @@ export default async function ForumsPage({ searchParams }: { searchParams: Promi
       </Suspense>
 
       {query && (
-        <p style={{ fontSize: "0.8125rem", color: "#777777", marginBottom: "1rem" }}>
-          {threads.length === 0
-            ? `No threads found for "${query}"`
-            : `${threads.length} thread${threads.length !== 1 ? "s" : ""} matching "${query}"`}
-          {" · "}
-          <Link href={catHref(activeCategory).replace(`q=${encodeURIComponent(query)}&`, "").replace(`&q=${encodeURIComponent(query)}`, "").replace(`q=${encodeURIComponent(query)}`, "")} style={{ color: "#c5623a", textDecoration: "none", fontWeight: 600 }}>
-            Clear
-          </Link>
-        </p>
+        <div style={{ marginBottom: "1rem" }}>
+          <p style={{ fontSize: "0.8125rem", color: "#777777" }}>
+            {threads.length === 0
+              ? `No threads found for "${query}"`
+              : `${threads.length} thread${threads.length !== 1 ? "s" : ""} for "${query}"`}
+            {" · "}
+            <Link
+              href={catHref(null).replace(`q=${encodeURIComponent(query)}`, "").replace("?&", "?").replace(/[?&]$/, "")}
+              style={{ color: "#c5623a", textDecoration: "none", fontWeight: 600 }}
+            >
+              Clear
+            </Link>
+          </p>
+          {keywords.length > 0 && (
+            <p style={{ fontSize: "0.75rem", color: "#aaaaaa", marginTop: "0.25rem" }}>
+              Searched:{" "}
+              {keywords.map((kw, i) => (
+                <span key={kw}>
+                  <span style={{ background: "#f0f0f0", padding: "1px 5px", borderRadius: "2px", fontFamily: "monospace", fontSize: "0.6875rem" }}>{kw}</span>
+                  {i < keywords.length - 1 ? " " : ""}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
