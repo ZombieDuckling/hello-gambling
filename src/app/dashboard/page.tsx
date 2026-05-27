@@ -13,6 +13,81 @@ export default async function DashboardPage() {
   const role = (session.user as any).role;
   const operatorId = (session.user as any).operatorId;
 
+  if (role === "ADMIN") {
+    const [disputeCounts, myCount, recentDisputes] = await Promise.all([
+      prisma.dispute.groupBy({ by: ["stage"], _count: { id: true } }),
+      prisma.dispute.count({ where: { assignedAdminId: userId } }),
+      prisma.dispute.findMany({
+        where: { assignedAdminId: userId },
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+        include: {
+          complaint: { include: { operator: { select: { name: true } } } },
+        },
+      }),
+    ]);
+    const countMap = Object.fromEntries(disputeCounts.map((s) => [s.stage, s._count.id]));
+    const active = (countMap["SUBMITTED"] ?? 0) + (countMap["UNDER_REVIEW"] ?? 0) + (countMap["MEDIATION"] ?? 0);
+    const total = Object.values(countMap).reduce((a, b) => a + b, 0);
+
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 style={{ fontSize: "1.375rem", fontWeight: 700, color: "#111111", letterSpacing: "-0.02em" }}>
+              Admin dashboard
+            </h1>
+            <p style={{ fontSize: "0.875rem", color: "#777777", marginTop: "0.25rem" }}>{session.user.name}</p>
+          </div>
+          <Link
+            href="/admin/disputes"
+            style={{ background: "#111111", color: "#ffffff", fontWeight: 600, fontSize: "0.8125rem", padding: "8px 16px", borderRadius: "4px", textDecoration: "none" }}
+          >
+            Open Dispute Queue
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+          {[
+            { label: "Active Disputes", value: active, color: "#991b1b" },
+            { label: "Total Disputes", value: total, color: "#111111" },
+            { label: "My Queue", value: myCount, color: "#c5623a" },
+            { label: "Closed", value: (countMap["CLOSED"] ?? 0) + (countMap["RESOLVED"] ?? 0), color: "#14532d" },
+          ].map((s) => (
+            <div key={s.label} style={{ background: "#ffffff", border: "1px solid #e0e0e0", borderRadius: "4px", padding: "1.25rem", textAlign: "center" }}>
+              <p style={{ fontSize: "1.75rem", fontWeight: 700, color: s.color }}>{s.value}</p>
+              <p style={{ fontSize: "0.6875rem", fontWeight: 600, color: "#999999", textTransform: "uppercase", letterSpacing: "0.07em", marginTop: "0.25rem" }}>
+                {s.label}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {recentDisputes.length > 0 && (
+          <section>
+            <h2 style={{ fontSize: "1rem", fontWeight: 700, color: "#111111", marginBottom: "1rem" }}>My claimed disputes</h2>
+            <div className="space-y-2">
+              {recentDisputes.map((d) => (
+                <Link key={d.id} href={`/disputes/${d.id}`} style={{ textDecoration: "none" }}>
+                  <div style={{ background: "#ffffff", border: "1px solid #e0e0e0", borderRadius: "4px", padding: "1rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+                    <div>
+                      <span style={{ fontFamily: "monospace", fontSize: "0.8125rem", color: "#777777", marginRight: "0.75rem" }}>{d.referenceNumber}</span>
+                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#111111" }}>{d.complaint.title}</span>
+                      <p style={{ fontSize: "0.75rem", color: "#999999", marginTop: "0.2rem" }}>{d.complaint.operator.name}</p>
+                    </div>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 600, color: "#555555", background: "#f0f0f0", padding: "2px 6px", borderRadius: "2px", flexShrink: 0 }}>
+                      {d.stage.replace("_", " ")}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
+
   if (role === "OPERATOR" && operatorId) {
     const [operator, complaints] = await Promise.all([
       prisma.operator.findUnique({ where: { id: operatorId } }),

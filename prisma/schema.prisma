@@ -47,8 +47,9 @@ model User {
   operator       Operator?       @relation(fields: [operatorId], references: [id])
   complaints     Complaint[]
   responses      Response[]
-  disputes       Dispute[]
-  disputeUpdates DisputeUpdate[]
+  disputes         Dispute[]
+  assignedDisputes Dispute[]       @relation("AdminDisputes")
+  disputeUpdates   DisputeUpdate[]
   forumThreads   ForumThread[]
   forumPosts     ForumPost[]
   forumVotes     ForumVote[]
@@ -108,6 +109,8 @@ model Dispute {
   complaint       Complaint       @relation(fields: [complaintId], references: [id])
   userId          String
   user            User            @relation(fields: [userId], references: [id])
+  assignedAdminId String?
+  assignedAdmin   User?           @relation("AdminDisputes", fields: [assignedAdminId], references: [id])
   updates         DisputeUpdate[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt

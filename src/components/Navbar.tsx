@@ -56,6 +56,15 @@ export default function Navbar() {
 
             {session ? (
               <>
+                {(session.user as any)?.role === "ADMIN" && (
+                  <Link
+                    href="/admin/disputes"
+                    style={{ fontSize: "0.875rem", fontWeight: 600, color: "#c5623a", textDecoration: "none" }}
+                    className="hover:text-black transition-colors"
+                  >
+                    Admin Queue
+                  </Link>
+                )}
                 <Link
                   href="/complaints/new"
                   style={{
@@ -156,6 +165,11 @@ export default function Navbar() {
             ))}
             {session ? (
               <>
+                {(session.user as any)?.role === "ADMIN" && (
+                  <Link href="/admin/disputes" className="block py-2 text-sm font-semibold" style={{ color: "#c5623a", textDecoration: "none" }}>
+                    Admin Queue
+                  </Link>
+                )}
                 <Link href="/complaints/new" className="block py-2 text-sm font-semibold" style={{ color: "#c5623a", textDecoration: "none" }}>
                   File Complaint
                 </Link>
