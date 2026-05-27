@@ -52,20 +52,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const newStage = (isAdmin && stage) ? stage : dispute.stage;
 
-  const [update] = await prisma.$transaction([
-    prisma.disputeUpdate.create({
-      data: {
-        content: content.trim(),
-        stage: newStage,
-        userId,
-        disputeId: id,
-      },
-    }),
-    prisma.dispute.update({
-      where: { id },
-      data: { stage: newStage, updatedAt: new Date() },
-    }),
-  ]);
+  const update = await prisma.disputeUpdate.create({
+    data: {
+      content: content.trim(),
+      stage: newStage,
+      userId,
+      disputeId: id,
+    },
+  });
+  await prisma.dispute.update({
+    where: { id },
+    data: { stage: newStage, updatedAt: new Date() },
+  });
 
   return NextResponse.json(update, { status: 201 });
 }

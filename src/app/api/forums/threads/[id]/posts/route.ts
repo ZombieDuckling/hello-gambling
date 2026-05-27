@@ -16,19 +16,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const thread = await prisma.forumThread.findUnique({ where: { id } });
   if (!thread) return NextResponse.json({ error: "Thread not found." }, { status: 404 });
 
-  const [post] = await prisma.$transaction([
-    prisma.forumPost.create({
-      data: {
-        content: content.trim(),
-        userId: (session.user as any).id,
-        threadId: id,
-      },
-    }),
-    prisma.forumThread.update({
-      where: { id },
-      data: { updatedAt: new Date() },
-    }),
-  ]);
+  const post = await prisma.forumPost.create({
+    data: {
+      content: content.trim(),
+      userId: (session.user as any).id,
+      threadId: id,
+    },
+  });
+  await prisma.forumThread.update({
+    where: { id },
+    data: { updatedAt: new Date() },
+  });
 
   return NextResponse.json(post, { status: 201 });
 }

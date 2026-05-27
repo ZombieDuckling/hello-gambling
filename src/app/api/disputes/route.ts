@@ -38,23 +38,21 @@ export async function POST(req: NextRequest) {
   if (complaint.dispute) return NextResponse.json({ error: "This complaint already has a dispute." }, { status: 409 });
 
   const year = new Date().getFullYear();
-  const count = await prisma.dispute.count();
-  const refNum = `HG-${year}-${String(count + 1).padStart(4, "0")}`;
+  const rand = Math.floor(Math.random() * 90000) + 10000;
+  const refNum = `HG-${year}-${rand}`;
 
-  const [dispute] = await prisma.$transaction([
-    prisma.dispute.create({
-      data: {
-        referenceNumber: refNum,
-        summary: summary.trim(),
-        complaintId,
-        userId,
-      },
-    }),
-    prisma.complaint.update({
-      where: { id: complaintId },
-      data: { status: "ESCALATED" },
-    }),
-  ]);
+  const dispute = await prisma.dispute.create({
+    data: {
+      referenceNumber: refNum,
+      summary: summary.trim(),
+      complaintId,
+      userId,
+    },
+  });
+  await prisma.complaint.update({
+    where: { id: complaintId },
+    data: { status: "ESCALATED" },
+  });
 
   await prisma.disputeUpdate.create({
     data: {
