@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { Suspense } from "react";
+import ForumSearch from "./ForumSearch";
 
 export const dynamic = "force-dynamic";
 
@@ -15,25 +17,42 @@ const CATEGORIES: { value: string; label: string; desc: string }[] = [
 
 const CAT_LABEL: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [c.value, c.label]));
 
-export default async function ForumsPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
-  const { category } = await searchParams;
+export default async function ForumsPage({ searchParams }: { searchParams: Promise<{ category?: string; q?: string }> }) {
+  const { category, q } = await searchParams;
   const session = await getServerSession(authOptions);
   const activeCategory = category ?? null;
+  const query = q?.trim() ?? "";
 
-  const threads = await prisma.forumThread.findMany({
-    where: activeCategory ? { category: activeCategory as any } : undefined,
-    orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
-    include: {
-      user: { select: { name: true } },
-      _count: { select: { posts: true } },
-    },
-  });
+  const [threads, categoryCounts] = await Promise.all([
+    prisma.forumThread.findMany({
+      where: {
+        ...(activeCategory ? { category: activeCategory as any } : {}),
+        ...(query ? {
+          OR: [
+            { title: { contains: query, mode: "insensitive" } },
+            { content: { contains: query, mode: "insensitive" } },
+          ],
+        } : {}),
+      },
+      orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
+      include: {
+        user: { select: { name: true } },
+        _count: { select: { posts: true } },
+      },
+    }),
+    prisma.forumThread.groupBy({ by: ["category"], _count: { id: true } }),
+  ]);
 
-  const categoryCounts = await prisma.forumThread.groupBy({
-    by: ["category"],
-    _count: { id: true },
-  });
   const countMap = Object.fromEntries(categoryCounts.map((c) => [c.category, c._count.id]));
+  const totalThreads = Object.values(countMap).reduce((a, b) => a + b, 0);
+
+  function catHref(cat: string | null) {
+    const p = new URLSearchParams();
+    if (cat) p.set("category", cat);
+    if (query) p.set("q", query);
+    const qs = p.toString();
+    return `/forums${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
@@ -56,37 +75,47 @@ export default async function ForumsPage({ searchParams }: { searchParams: Promi
         )}
       </div>
 
+      <Suspense fallback={null}>
+        <ForumSearch defaultValue={query} />
+      </Suspense>
+
+      {query && (
+        <p style={{ fontSize: "0.8125rem", color: "#777777", marginBottom: "1rem" }}>
+          {threads.length === 0
+            ? `No threads found for "${query}"`
+            : `${threads.length} thread${threads.length !== 1 ? "s" : ""} matching "${query}"`}
+          {" · "}
+          <Link href={catHref(activeCategory).replace(`q=${encodeURIComponent(query)}&`, "").replace(`&q=${encodeURIComponent(query)}`, "").replace(`q=${encodeURIComponent(query)}`, "")} style={{ color: "#c5623a", textDecoration: "none", fontWeight: 600 }}>
+            Clear
+          </Link>
+        </p>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <aside className="md:col-span-1">
           <nav style={{ background: "#ffffff", border: "1px solid #e0e0e0", borderRadius: "4px", overflow: "hidden" }}>
             <Link
-              href="/forums"
+              href={catHref(null)}
               style={{
-                display: "block",
-                padding: "0.75rem 1rem",
-                fontSize: "0.8125rem",
+                display: "block", padding: "0.75rem 1rem", fontSize: "0.8125rem",
                 fontWeight: !activeCategory ? 700 : 500,
                 color: !activeCategory ? "#c5623a" : "#555555",
-                textDecoration: "none",
-                borderBottom: "1px solid #f0f0f0",
+                textDecoration: "none", borderBottom: "1px solid #f0f0f0",
                 background: !activeCategory ? "#fff8f6" : "transparent",
               }}
             >
               All threads
-              <span style={{ float: "right", fontSize: "0.6875rem", color: "#999999" }}>{threads.length || ""}</span>
+              <span style={{ float: "right", fontSize: "0.6875rem", color: "#999999" }}>{totalThreads || ""}</span>
             </Link>
             {CATEGORIES.map((cat) => (
               <Link
                 key={cat.value}
-                href={`/forums?category=${cat.value}`}
+                href={catHref(activeCategory === cat.value ? null : cat.value)}
                 style={{
-                  display: "block",
-                  padding: "0.75rem 1rem",
-                  fontSize: "0.8125rem",
+                  display: "block", padding: "0.75rem 1rem", fontSize: "0.8125rem",
                   fontWeight: activeCategory === cat.value ? 700 : 400,
                   color: activeCategory === cat.value ? "#c5623a" : "#555555",
-                  textDecoration: "none",
-                  borderBottom: "1px solid #f0f0f0",
+                  textDecoration: "none", borderBottom: "1px solid #f0f0f0",
                   background: activeCategory === cat.value ? "#fff8f6" : "transparent",
                 }}
               >
@@ -100,12 +129,14 @@ export default async function ForumsPage({ searchParams }: { searchParams: Promi
         <main className="md:col-span-4">
           {threads.length === 0 ? (
             <div style={{ background: "#ffffff", border: "1px solid #e0e0e0", borderRadius: "4px", padding: "4rem", textAlign: "center" }}>
-              <p style={{ fontWeight: 600, color: "#555555", marginBottom: "0.5rem" }}>No threads yet.</p>
-              {session?.user ? (
+              <p style={{ fontWeight: 600, color: "#555555", marginBottom: "0.5rem" }}>
+                {query ? `No results for "${query}"` : "No threads yet."}
+              </p>
+              {!query && (session?.user ? (
                 <Link href="/forums/new" style={{ fontSize: "0.875rem", color: "#c5623a", textDecoration: "none", fontWeight: 600 }}>Start the first one.</Link>
               ) : (
                 <Link href="/auth/login" style={{ fontSize: "0.875rem", color: "#c5623a", textDecoration: "none", fontWeight: 600 }}>Sign in to post.</Link>
-              )}
+              ))}
             </div>
           ) : (
             <div style={{ background: "#ffffff", border: "1px solid #e0e0e0", borderRadius: "4px", overflow: "hidden" }}>
@@ -116,9 +147,7 @@ export default async function ForumsPage({ searchParams }: { searchParams: Promi
                     style={{
                       padding: "1rem 1.25rem",
                       borderBottom: i < threads.length - 1 ? "1px solid #f0f0f0" : "none",
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "1rem",
+                      display: "flex", alignItems: "flex-start", gap: "1rem",
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -133,7 +162,7 @@ export default async function ForumsPage({ searchParams }: { searchParams: Promi
                         </span>
                       </div>
                       <p style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111111", lineHeight: 1.3, marginBottom: "0.25rem" }}>
-                        {t.title}
+                        {query ? <HighlightMatch text={t.title} query={query} /> : t.title}
                       </p>
                       <p style={{ fontSize: "0.75rem", color: "#999999" }}>
                         by <strong style={{ color: "#555555" }}>{t.user.name}</strong>
@@ -152,5 +181,19 @@ export default async function ForumsPage({ searchParams }: { searchParams: Promi
         </main>
       </div>
     </div>
+  );
+}
+
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ background: "#fef9c3", color: "inherit", borderRadius: "2px", padding: "0 1px" }}>
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
   );
 }
