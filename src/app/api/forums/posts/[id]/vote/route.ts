@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: postId } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
@@ -13,7 +14,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const userId = (session.user as any).id;
-  const postId = params.id;
 
   const existing = await prisma.forumVote.findUnique({
     where: { userId_postId: { userId, postId } },

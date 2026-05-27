@@ -26,14 +26,15 @@ const selectStyle: React.CSSProperties = {
 export default async function DisputesPage({
   searchParams,
 }: {
-  searchParams: { stage?: string; q?: string };
+  searchParams: Promise<{ stage?: string; q?: string }>;
 }) {
+  const { stage, q } = await searchParams;
   const where: Record<string, unknown> = {};
-  if (searchParams.stage) where.stage = searchParams.stage;
-  if (searchParams.q) {
+  if (stage) where.stage = stage;
+  if (q) {
     where.OR = [
-      { referenceNumber: { contains: searchParams.q, mode: "insensitive" } },
-      { summary: { contains: searchParams.q, mode: "insensitive" } },
+      { referenceNumber: { contains: q, mode: "insensitive" } },
+      { summary: { contains: q, mode: "insensitive" } },
     ];
   }
 
@@ -50,7 +51,7 @@ export default async function DisputesPage({
     prisma.dispute.count({ where }),
   ]);
 
-  const hasFilters = !!(searchParams.stage || searchParams.q);
+  const hasFilters = !!(stage || q);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
@@ -100,11 +101,11 @@ export default async function DisputesPage({
       >
         <input
           name="q"
-          defaultValue={searchParams.q}
+          defaultValue={q}
           placeholder="Search by reference or description..."
           style={{ ...selectStyle, flex: 1, minWidth: "180px" }}
         />
-        <select name="stage" defaultValue={searchParams.stage ?? ""} style={selectStyle}>
+        <select name="stage" defaultValue={stage ?? ""} style={selectStyle}>
           {STAGES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <button

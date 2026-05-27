@@ -15,10 +15,11 @@ const STAGE: Record<string, { label: string; color: string; bg: string }> = {
   CLOSED:       { label: "Closed",       color: "#374151", bg: "#f9fafb" },
 };
 
-export default async function DisputePage({ params }: { params: { id: string } }) {
+export default async function DisputePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const [dispute, session] = await Promise.all([
     prisma.dispute.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         complaint: { include: { operator: true, user: { select: { name: true } } } },
         user: { select: { id: true, name: true } },

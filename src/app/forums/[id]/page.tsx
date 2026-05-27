@@ -16,10 +16,11 @@ const CAT_LABEL: Record<string, string> = {
   REGULATORY:          "Regulatory & Legal",
 };
 
-export default async function ForumThreadPage({ params }: { params: { id: string } }) {
+export default async function ForumThreadPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const [thread, session] = await Promise.all([
     prisma.forumThread.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: { select: { name: true, role: true } },
         posts: {

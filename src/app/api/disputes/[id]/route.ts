@@ -3,9 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const dispute = await prisma.dispute.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       complaint: { include: { operator: true } },
       user: { select: { name: true } },
@@ -20,7 +21,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(dispute);
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
 
@@ -34,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const operatorId = (session.user as any).operatorId;
 
   const dispute = await prisma.dispute.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { complaint: true },
   });
 
@@ -56,11 +58,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         content: content.trim(),
         stage: newStage,
         userId,
-        disputeId: params.id,
+        disputeId: id,
       },
     }),
     prisma.dispute.update({
-      where: { id: params.id },
+      where: { id },
       data: { stage: newStage, updatedAt: new Date() },
     }),
   ]);

@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
@@ -12,7 +13,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Content is required." }, { status: 400 });
   }
 
-  const thread = await prisma.forumThread.findUnique({ where: { id: params.id } });
+  const thread = await prisma.forumThread.findUnique({ where: { id } });
   if (!thread) return NextResponse.json({ error: "Thread not found." }, { status: 404 });
 
   const [post] = await prisma.$transaction([
@@ -20,11 +21,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       data: {
         content: content.trim(),
         userId: (session.user as any).id,
-        threadId: params.id,
+        threadId: id,
       },
     }),
     prisma.forumThread.update({
-      where: { id: params.id },
+      where: { id },
       data: { updatedAt: new Date() },
     }),
   ]);

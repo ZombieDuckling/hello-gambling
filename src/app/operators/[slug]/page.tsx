@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import ComplaintCard from "@/components/ComplaintCard";
 
-export default async function OperatorPage({ params }: { params: { slug: string } }) {
+export default async function OperatorPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const operator = await prisma.operator.findUnique({
-    where: { slug: params.slug },
+    where: { slug },
     include: {
       complaints: {
         orderBy: { createdAt: "desc" },

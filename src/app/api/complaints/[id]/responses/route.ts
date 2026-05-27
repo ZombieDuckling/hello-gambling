@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
 
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const role = (session.user as any).role;
   const operatorId = (session.user as any).operatorId;
 
-  const complaint = await prisma.complaint.findUnique({ where: { id: params.id } });
+  const complaint = await prisma.complaint.findUnique({ where: { id } });
   if (!complaint) return NextResponse.json({ error: "Complaint not found." }, { status: 404 });
 
   const isOwner = complaint.userId === userId;
@@ -33,14 +34,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     data: {
       content: content.trim(),
       userId,
-      complaintId: params.id,
+      complaintId: id,
       isOfficial,
     },
   });
 
   if (isOfficial && complaint.status === "OPEN") {
     await prisma.complaint.update({
-      where: { id: params.id },
+      where: { id: id },
       data: { status: "IN_PROGRESS" },
     });
   }

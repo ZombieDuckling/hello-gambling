@@ -15,9 +15,10 @@ const CATEGORIES: { value: string; label: string; desc: string }[] = [
 
 const CAT_LABEL: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [c.value, c.label]));
 
-export default async function ForumsPage({ searchParams }: { searchParams: { category?: string } }) {
+export default async function ForumsPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+  const { category } = await searchParams;
   const session = await getServerSession(authOptions);
-  const activeCategory = searchParams.category ?? null;
+  const activeCategory = category ?? null;
 
   const threads = await prisma.forumThread.findMany({
     where: activeCategory ? { category: activeCategory as any } : undefined,
@@ -118,8 +119,6 @@ export default async function ForumsPage({ searchParams }: { searchParams: { cat
                       display: "flex",
                       alignItems: "flex-start",
                       gap: "1rem",
-                      border: "none",
-                      borderBottom: i < threads.length - 1 ? "1px solid #f0f0f0" : "none",
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>

@@ -36,17 +36,18 @@ const selectStyle: React.CSSProperties = {
 export default async function ComplaintsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; category?: string };
+  searchParams: Promise<{ q?: string; status?: string; category?: string }>;
 }) {
+  const { q, status, category } = await searchParams;
   const where: Record<string, unknown> = {};
-  if (searchParams.q) {
+  if (q) {
     where.OR = [
-      { title: { contains: searchParams.q, mode: "insensitive" } },
-      { description: { contains: searchParams.q, mode: "insensitive" } },
+      { title: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
     ];
   }
-  if (searchParams.status) where.status = searchParams.status;
-  if (searchParams.category) where.category = searchParams.category;
+  if (status) where.status = status;
+  if (category) where.category = category;
 
   const [complaints, total] = await Promise.all([
     prisma.complaint.findMany({
@@ -61,7 +62,7 @@ export default async function ComplaintsPage({
     prisma.complaint.count({ where }),
   ]);
 
-  const hasFilters = !!(searchParams.q || searchParams.status || searchParams.category);
+  const hasFilters = !!(q || status || category);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
@@ -106,14 +107,14 @@ export default async function ComplaintsPage({
       >
         <input
           name="q"
-          defaultValue={searchParams.q}
+          defaultValue={q}
           placeholder="Search complaints..."
           style={{ ...selectStyle, flex: 1, minWidth: "180px" }}
         />
-        <select name="status" defaultValue={searchParams.status ?? ""} style={selectStyle}>
+        <select name="status" defaultValue={status ?? ""} style={selectStyle}>
           {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        <select name="category" defaultValue={searchParams.category ?? ""} style={selectStyle}>
+        <select name="category" defaultValue={category ?? ""} style={selectStyle}>
           {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <button

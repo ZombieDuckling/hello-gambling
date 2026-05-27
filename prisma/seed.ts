@@ -1,7 +1,9 @@
 import { PrismaClient, UserRole, ComplaintCategory, ComplaintStatus } from "@prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 
 const operators = [
   {
@@ -250,27 +252,32 @@ async function main() {
 
   if (escalatedComplaint) {
     const year = new Date().getFullYear();
-    const dispute = await prisma.dispute.create({
-      data: {
-        referenceNumber: `HG-${year}-0001`,
-        stage: "UNDER_REVIEW",
-        summary:
-          "Consumer's account has been suspended for over 3 weeks with R12,000 balance inaccessible. Operator has not provided reason or timeline for resolution despite multiple contact attempts. Consumer has submitted all required FICA documentation.",
-        complaintId: escalatedComplaint.id,
-        userId: consumer.id,
-      },
-    });
-
-    await prisma.disputeUpdate.create({
-      data: {
-        content:
-          "Dispute received and assigned reference number HG-2024-0001. The Hello, Gambling mediation team has contacted the operator and requested urgent feedback within 5 business days.",
-        stage: "UNDER_REVIEW",
-        userId: consumer.id,
-        disputeId: dispute.id,
-      },
-    });
-    console.log("  ✓ Sample dispute created: HG-2024-0001");
+    const refNumber = `HG-${year}-0001`;
+    const existing = await prisma.dispute.findUnique({ where: { referenceNumber: refNumber } });
+    if (!existing) {
+      const dispute = await prisma.dispute.create({
+        data: {
+          referenceNumber: refNumber,
+          stage: "UNDER_REVIEW",
+          summary:
+            "Consumer's account has been suspended for over 3 weeks with R12,000 balance inaccessible. Operator has not provided reason or timeline for resolution despite multiple contact attempts. Consumer has submitted all required FICA documentation.",
+          complaintId: escalatedComplaint.id,
+          userId: consumer.id,
+        },
+      });
+      await prisma.disputeUpdate.create({
+        data: {
+          content:
+            "Dispute received and assigned reference number. The Hello, Gambling mediation team has contacted the operator and requested urgent feedback within 5 business days.",
+          stage: "UNDER_REVIEW",
+          userId: consumer.id,
+          disputeId: dispute.id,
+        },
+      });
+      console.log(`  ✓ Sample dispute created: ${refNumber}`);
+    } else {
+      console.log(`  ✓ Sample dispute already exists: ${refNumber}`);
+    }
   }
 
   console.log("\n✅ Database seeded successfully!");

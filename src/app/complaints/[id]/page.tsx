@@ -22,10 +22,11 @@ const CATEGORY: Record<string, string> = {
   OTHER: "Other",
 };
 
-export default async function ComplaintPage({ params }: { params: { id: string } }) {
+export default async function ComplaintPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const [complaint, session] = await Promise.all([
     prisma.complaint.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: { select: { id: true, name: true } },
         operator: true,
@@ -205,7 +206,7 @@ export default async function ComplaintPage({ params }: { params: { id: string }
         )}
 
         <div className="space-y-3 mb-4">
-          {complaint.responses.map((r) => (
+          {complaint.responses.map((r: (typeof complaint.responses)[number]) => (
             <div
               key={r.id}
               style={{
