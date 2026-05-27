@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import AdminDisputeRow from "./AdminDisputeRow";
+import HowItWorks from "./HowItWorks";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,8 @@ export default async function AdminDisputesPage({
           </Link>
         </div>
       </div>
+
+      <HowItWorks />
 
       {/* Stage pipeline cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: "0.625rem", marginBottom: "1.5rem" }}>
